@@ -1,0 +1,37 @@
+CREATE OR REPLACE PACKAGE inventory_pkg AS
+
+  -- إنشاء طلب شراء (Header)
+  PROCEDURE create_purchase_order (
+    p_po_id        IN NUMBER,
+    p_supplier_id  IN NUMBER
+  );
+
+  -- إضافة صنف إلى طلب الشراء
+  PROCEDURE add_po_line (
+    p_line_id      IN NUMBER,
+    p_po_id        IN NUMBER,
+    p_item_id      IN NUMBER,
+    p_qty          IN NUMBER,
+    p_unit_price   IN NUMBER
+  );
+
+  -- اعتماد طلب الشراء
+  PROCEDURE approve_purchase_order (
+    p_po_id IN NUMBER
+  );
+
+  -- تسجيل حركة مخزون (IN / OUT)
+  PROCEDURE record_stock_movement (
+    p_move_id   IN NUMBER,
+    p_item_id   IN NUMBER,
+    p_qty       IN NUMBER,
+    p_move_type IN VARCHAR2
+  );
+
+  -- استلام طلب الشراء
+  PROCEDURE receive_purchase_order (
+    p_po_id IN NUMBER
+  );
+
+END inventory_pkg;
+/
