@@ -5,7 +5,17 @@ CREATE OR REPLACE PACKAGE BODY inventory_pkg AS
     p_po_id        IN NUMBER,
     p_supplier_id  IN NUMBER
   ) IS
+    v_supplier_exists NUMBER;
   BEGIN
+    SELECT COUNT(*)
+    INTO v_supplier_exists
+    FROM suppliers
+    WHERE supplier_id = p_supplier_id;
+
+    IF v_supplier_exists = 0 THEN
+      RAISE_APPLICATION_ERROR(-20004, 'Supplier does not exist');
+    END IF;
+
     INSERT INTO purchase_orders (
       po_id, supplier_id, po, status
     )
@@ -22,7 +32,25 @@ CREATE OR REPLACE PACKAGE BODY inventory_pkg AS
     p_qty          IN NUMBER,
     p_unit_price   IN NUMBER
   ) IS
+    v_status purchase_orders.status%TYPE;
   BEGIN
+    IF p_qty <= 0 THEN
+      RAISE_APPLICATION_ERROR(-20005, 'Quantity must be greater than zero');
+    END IF;
+
+    IF p_unit_price < 0 THEN
+      RAISE_APPLICATION_ERROR(-20006, 'Unit price cannot be negative');
+    END IF;
+
+    SELECT status
+    INTO v_status
+    FROM purchase_orders
+    WHERE po_id = p_po_id;
+
+    IF v_status <> 'NEW' THEN
+      RAISE_APPLICATION_ERROR(-20007, 'Lines can only be added to NEW purchase orders');
+    END IF;
+
     INSERT INTO po_lines (
       line_id, po_id, item_id, qty_requested, unit_price
     )
@@ -35,7 +63,17 @@ CREATE OR REPLACE PACKAGE BODY inventory_pkg AS
   PROCEDURE approve_purchase_order (
     p_po_id IN NUMBER
   ) IS
+    v_line_count NUMBER;
   BEGIN
+    SELECT COUNT(*)
+    INTO v_line_count
+    FROM po_lines
+    WHERE po_id = p_po_id;
+
+    IF v_line_count = 0 THEN
+      RAISE_APPLICATION_ERROR(-20008, 'Purchase order must contain at least one line');
+    END IF;
+
     UPDATE purchase_orders
     SET status = 'APPROVED'
     WHERE po_id = p_po_id
@@ -48,20 +86,29 @@ CREATE OR REPLACE PACKAGE BODY inventory_pkg AS
 
   ----------------------------------------------------
   PROCEDURE record_stock_movement (
-    p_move_id   IN NUMBER,
+    p_move_id   IN NUMBER DEFAULT NULL,
     p_item_id   IN NUMBER,
     p_qty       IN NUMBER,
     p_move_type IN VARCHAR2
   ) IS
     v_current_qty NUMBER;
+    v_move_type   stock_movements.move_type%TYPE := UPPER(TRIM(p_move_type));
   BEGIN
+    IF p_qty <= 0 THEN
+      RAISE_APPLICATION_ERROR(-20009, 'Movement quantity must be greater than zero');
+    END IF;
+
+    IF v_move_type NOT IN ('IN', 'OUT') THEN
+      RAISE_APPLICATION_ERROR(-20010, 'Movement type must be IN or OUT');
+    END IF;
+
     SELECT current_qty
     INTO v_current_qty
     FROM items
     WHERE item_id = p_item_id
     FOR UPDATE;
 
-    IF p_move_type = 'OUT' AND v_current_qty < p_qty THEN
+    IF v_move_type = 'OUT' AND v_current_qty < p_qty THEN
       RAISE_APPLICATION_ERROR(-20002, 'Insufficient stock');
     END IF;
 
@@ -69,10 +116,10 @@ CREATE OR REPLACE PACKAGE BODY inventory_pkg AS
       move_id, item_id, qty, move_type, move_date
     )
     VALUES (
-      p_move_id, p_item_id, p_qty, p_move_type, SYSDATE
+      p_move_id, p_item_id, p_qty, v_move_type, SYSDATE
     );
 
-    IF p_move_type = 'IN' THEN
+    IF v_move_type = 'IN' THEN
       UPDATE items
       SET current_qty = current_qty + p_qty
       WHERE item_id = p_item_id;
@@ -92,7 +139,6 @@ CREATE OR REPLACE PACKAGE BODY inventory_pkg AS
       FROM po_lines
       WHERE po_id = p_po_id;
 
-    v_move_id NUMBER := 1;
     v_status  purchase_orders.status%TYPE;
   BEGIN
     SELECT status
@@ -107,12 +153,11 @@ CREATE OR REPLACE PACKAGE BODY inventory_pkg AS
 
     FOR r IN c_po_lines LOOP
       record_stock_movement(
-        p_move_id   => v_move_id,
+        p_move_id   => NULL,
         p_item_id   => r.item_id,
         p_qty       => r.qty_requested,
         p_move_type => 'IN'
       );
-      v_move_id := v_move_id + 1;
     END LOOP;
 
     UPDATE purchase_orders
