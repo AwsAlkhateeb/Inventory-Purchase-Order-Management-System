@@ -31,7 +31,7 @@ create table PO_LINES(
     unit_price number(10,2) check (unit_price>=0),
     CONSTRAINT PO_LINES_po_id foreign key(po_id) references PURCHASE_ORDERS(po_id) on delete cascade,
     CONSTRAINT PO_LINES_item_id foreign key(item_id) references ITEMS(item_id),
-    CONSTRAINT uq_po_item UNIQUE (item_id)
+    CONSTRAINT uq_po_item UNIQUE (po_id, item_id)
 );
 
 create table STOCK_MOVEMENTS(
@@ -42,6 +42,11 @@ create table STOCK_MOVEMENTS(
     move_date date default sysdate,
     CONSTRAINT STOCK_MOVEMENTS_item_id foreign key(item_id) references ITEMS(item_id)
 );
+
+create index idx_purchase_orders_supplier on PURCHASE_ORDERS(supplier_id);
+create index idx_po_lines_po on PO_LINES(po_id);
+create index idx_po_lines_item on PO_LINES(item_id);
+create index idx_stock_movements_item_date on STOCK_MOVEMENTS(item_id, move_date);
 
 
 
