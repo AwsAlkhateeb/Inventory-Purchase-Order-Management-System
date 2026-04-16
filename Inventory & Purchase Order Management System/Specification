@@ -22,7 +22,7 @@ CREATE OR REPLACE PACKAGE inventory_pkg AS
 
   -- تسجيل حركة مخزون (IN / OUT)
   PROCEDURE record_stock_movement (
-    p_move_id   IN NUMBER,
+    p_move_id   IN NUMBER DEFAULT NULL,
     p_item_id   IN NUMBER,
     p_qty       IN NUMBER,
     p_move_type IN VARCHAR2
