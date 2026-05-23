@@ -26,6 +26,4 @@ process purchase orders, and maintain a complete history of stock movements.
 3. Receive items and update inventory
 4. Monitor stock levels and movements
 
-## Author
-- Name: Aws Alkhateeb
-- Major: Computer Engineering
+
